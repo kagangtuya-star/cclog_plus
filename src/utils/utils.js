@@ -120,7 +120,9 @@ export const processMessageTag = (
 
     const category = translateCategory(spans[0].textContent.trim().replace(/\[|\]/g, "").toLowerCase());
 
-    const charName = spans[1].textContent.trim();
+    const displayName = spans[1].textContent.trim();
+    const originalNameAttr = spans[1].getAttribute("data-original-name");
+    const charName = originalNameAttr || displayName;
     spans[0].textContent = "";
 
     if (!(category in selectedCategories)) {
@@ -132,12 +134,21 @@ export const processMessageTag = (
     let backgroundColor = "transparent";
     let displayType = "flex";
     const imgUrl = resolveCharacterHead(charHeads, charName);
+    const avatarLabel = displayName || charName;
+    const resolveNameColor = () => {
+        if (!charColors) return "";
+        if (typeof charColors === "string") return charColors;
+        return charColors[charName] || "";
+    };
 
     // 스타일 및 UI 설정 함수
     const applyCategoryStyles = () => {
         p.style.color = category === "other" ? "gray" : category === "info" ? "#9d9d9d" : "#dddddd";
-        if (category !== "other" && charColors) {
-            spans[1].style.color = (type === "json") ? charColors : charColors[charName];
+        if (category !== "other") {
+            const nameColor = resolveNameColor();
+            if (nameColor) {
+                spans[1].style.color = nameColor;
+            }
         }
     };
 
@@ -256,7 +267,7 @@ export const processMessageTag = (
             spans[2].insertAdjacentHTML("beforebegin", dice_text);
             } else {
               spans[1].style.fontWeight = "bold";
-              imgTag = buildAvatarTag(imgUrl, charName);
+              imgTag = buildAvatarTag(imgUrl, avatarLabel);
             }
             cleanUpText_third();
             break;
@@ -266,7 +277,7 @@ export const processMessageTag = (
             <span style="background: #464646; color: white; display: inline-block; padding: 10px 9px; border-radius: 5px; font-size: 14px; text-align: center;">
             ${t('preview.secret')}  </span>`;
             if(secretEnabled){
-                imgTag = buildAvatarTag(imgUrl, charName);} else {
+                imgTag = buildAvatarTag(imgUrl, avatarLabel);} else {
                 spans[0].insertAdjacentHTML("beforebegin", secret_txt+'&nbsp');
             }
             backgroundColor = "#525569";
@@ -300,12 +311,12 @@ export const processMessageTag = (
                         }
                     }
                 } else if(secretEnabled){
-                    imgTag = buildAvatarTag(imgUrl, charName);
+                    imgTag = buildAvatarTag(imgUrl, avatarLabel);
                 }
             } else {
                 spans[1].style.fontWeight = "bold";
                 backgroundColor = "#3b3b3b";
-                imgTag = buildAvatarTag(imgUrl, charName);
+                imgTag = buildAvatarTag(imgUrl, avatarLabel);
             }
             cleanUpText_third();
             break;

@@ -32,6 +32,8 @@ const ExportWorkspace = ({
   secretEnabled,
   setSecretEnabled,
   systemNames = [],
+  charAliases = {},
+  setCharAliases = () => {},
 }) => {
   const currentRoom = rooms.find((room) => room.roomId === selectedRoomId);
   const roomOptions = rooms.length
@@ -141,6 +143,8 @@ const ExportWorkspace = ({
           setCharColors={setCharColors}
           charHeads={charHeads}
           setCharHeads={setCharHeads}
+          charAliases={charAliases}
+          setCharAliases={setCharAliases}
           selectedCategories={selectedCategories}
           setSelectedCategories={setSelectedCategories}
           diceEnabled={diceEnabled}

@@ -40,6 +40,7 @@ function App() {
   const [fileName, setFileName] = useState("log.html");
   const [charColors, setCharColors] = useState({});
   const [charHeads, setCharHeads] = useState({});
+  const [charAliases, setCharAliases] = useState({});
   const [imageCache, setImageCache] = useState({});
   const [titleImages, setTitleImages] = useState([]);
   const [endImages, setEndImages] = useState([]);
@@ -634,15 +635,20 @@ function App() {
 
       messages.forEach((msg) => {
         const category = msg.channelName || msg.channelId || "other";
-        const charName = msg.nickname || "NONAME";
+        const originalName = msg.nickname || "NONAME";
+        const displayName = charAliases[originalName] || originalName;
         const text = (msg.text || "").replace(/\n/g, "<br>");
         const diceText = msg.diceResult || "";
         const p = document.createElement("p");
         p.innerHTML = `
-          <span>[${category}]</span> <span>${charName}</span><b>${formatDate(
+          <span>[${category}]</span> <span>${displayName}</span><b>${formatDate(
           msg.timestampMs
         )}</b> : <span>${text + diceText}</span>
         `;
+        const spans = p.getElementsByTagName("span");
+        if (spans[1]) {
+          spans[1].setAttribute("data-original-name", originalName);
+        }
 
         processMessageTag(
           p,
@@ -688,6 +694,7 @@ function App() {
       titleImagesHtml,
       endImagesHtml,
       resolveImageSrc,
+      charAliases,
       t,
     ]
   );
@@ -787,6 +794,21 @@ function App() {
     });
     setCharColors((prev) => ({ ...newCharColors, ...prev }));
   }, [fileContent]);
+  useEffect(() => {
+    setCharAliases((prev) => {
+      const validNames = new Set(Object.keys(charColors));
+      const next = {};
+      Object.keys(prev).forEach((name) => {
+        if (validNames.has(name)) {
+          next[name] = prev[name];
+        }
+      });
+      const changed =
+        Object.keys(next).length !== Object.keys(prev).length ||
+        Object.keys(next).some((key) => next[key] !== prev[key]);
+      return changed ? next : prev;
+    });
+  }, [charColors]);
 
   useEffect(() => {
     if (mode !== "search" || !apiMessages.length) return;
@@ -991,6 +1013,8 @@ function App() {
                   setCharColors={setCharColors}
                   charHeads={charHeads}
                   setCharHeads={setCharHeads}
+                  charAliases={charAliases}
+                  setCharAliases={setCharAliases}
                   selectedCategories={selectedCategories}
                   setSelectedCategories={setSelectedCategories}
                   diceEnabled={diceEnabled}

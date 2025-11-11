@@ -8,6 +8,8 @@ const SettingsPanel = ({
   setCharColors,
   charHeads,
   setCharHeads,
+  charAliases,
+  setCharAliases,
   selectedCategories,
   setSelectedCategories,
   diceEnabled,
@@ -31,17 +33,19 @@ const SettingsPanel = ({
       const next = { ...prev };
       Object.keys(charColors).forEach((name) => {
         if (!(name in next)) {
-          next[name] = name;
+          next[name] = charAliases[name] || name;
         }
       });
       Object.keys(next).forEach((key) => {
         if (!charColors[key]) {
           delete next[key];
+        } else if (charAliases[key] && next[key] === key) {
+          next[key] = charAliases[key];
         }
       });
       return next;
     });
-  }, [charColors]);
+  }, [charColors, charAliases]);
 
   const handleCategoryChange = (category) => {
     setSelectedCategories((prev) => ({
@@ -54,35 +58,22 @@ const SettingsPanel = ({
     setNameDrafts((prev) => ({ ...prev, [originalName]: value }));
   };
 
-  const renameCharacter = (oldName) => {
-    const draft = nameDrafts[oldName];
+  const commitAlias = (originalName) => {
+    const draft = nameDrafts[originalName];
     const newName = draft?.trim();
-    if (!newName || newName === oldName) {
-      setNameDrafts((prev) => {
-        const next = { ...prev };
-        delete next[oldName];
-        return next;
-      });
-      return;
-    }
-    if (charColors[newName]) {
-      alert(`角色名称 "${newName}" 已存在，请使用其他名称。`);
-      return;
-    }
-    setCharColors((prev) => {
-      const { [oldName]: color, ...rest } = prev;
-      return { ...rest, [newName]: color };
-    });
-    setCharHeads((prev) => {
-      const { [oldName]: head, ...rest } = prev;
-      return head ? { ...rest, [newName]: head } : rest;
-    });
-    setNameDrafts((prev) => {
+    setCharAliases((prev) => {
       const next = { ...prev };
-      delete next[oldName];
-      next[newName] = newName;
+      if (!newName || newName === originalName) {
+        delete next[originalName];
+      } else {
+        next[originalName] = newName;
+      }
       return next;
     });
+    setNameDrafts((prev) => ({
+      ...prev,
+      [originalName]: newName && newName !== originalName ? newName : originalName,
+    }));
   };
 
   const handleAvatarUpload = (charName, file) => {
@@ -159,18 +150,18 @@ const SettingsPanel = ({
       </h4>
       <div className="character-grid">
         {Object.keys(charColors).map((charName) => {
-          const draftValue = nameDrafts[charName] ?? charName;
+          const draftValue = nameDrafts[charName] ?? charAliases[charName] ?? charName;
           const avatarSrc = charHeads[charName] || "";
           const inputId = `avatar-${charName}`;
           return (
             <div key={charName} className="character-row">
               <div className="character-cell">
-                <label>角色姓名</label>
+                <label>显示名称</label>
                 <input
                   type="text"
                   value={draftValue}
                   onChange={(e) => handleNameDraftChange(charName, e.target.value)}
-                  onBlur={() => renameCharacter(charName)}
+                  onBlur={() => commitAlias(charName)}
                 />
               </div>
               <div className="character-cell avatar-cell">
