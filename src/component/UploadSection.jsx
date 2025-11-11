@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import FileUploader from "../utils/FileUploader.js";
+import FileUploader from "../utils/FileUploader.jsx";
 import i18n from "../locales/i18n.ts";
 
 const UploadSection = ({ setFileContent, setFileName, t }) => {
-  const [language, setLanguage] = useState(i18n.language || "ko");
+  const [language, setLanguage] = useState(i18n.language || "zh");
 
 
   const handleLanguageChange = (event) => {
@@ -22,11 +22,11 @@ const UploadSection = ({ setFileContent, setFileName, t }) => {
       </p>
       <div>
       <label htmlFor="language-select">{t("setting.select_lang")}: </label>
-        <select id="language-select"  onChange={handleLanguageChange}>
-          <option value="ko" >한국어</option>
-          <option value="en" >English</option>
-          <option value="jp">日本語</option>
+        <select id="language-select" value={language} onChange={handleLanguageChange}>
           <option value="zh">中文</option>
+          <option value="ko">한국어</option>
+          <option value="en">English</option>
+          <option value="jp">日本語</option>
         </select>
       </div>
 

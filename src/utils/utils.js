@@ -1,10 +1,65 @@
-import { COCdice, getDiceTypes } from '../component/dice'
+import { COCdice, getDiceTypes } from "../component/dice";
+
+const normalizeImageValue = (value) => {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim();
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const resolved = normalizeImageValue(item);
+      if (resolved) return resolved;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    if (typeof value.stringValue === "string") {
+      return value.stringValue.trim();
+    }
+    if (value.arrayValue?.values?.length) {
+      return normalizeImageValue(value.arrayValue.values);
+    }
+    if (value.mapValue?.fields) {
+      const fields = value.mapValue.fields;
+      return (
+        normalizeImageValue(fields.url) ||
+        normalizeImageValue(fields.src) ||
+        normalizeImageValue(fields.origin) ||
+        normalizeImageValue(fields.original) ||
+        normalizeImageValue(fields.default) ||
+        normalizeImageValue(fields.thumb) ||
+        ""
+      );
+    }
+    if (value.url || value.href || value.src) {
+      return normalizeImageValue(value.url || value.href || value.src);
+    }
+  }
+  return "";
+};
+
+const resolveCharacterHead = (charHeads, charName) => {
+  if (!charHeads) return "";
+  if (typeof charHeads === "string") return normalizeImageValue(charHeads);
+  if (typeof charHeads === "object") {
+    return (
+      normalizeImageValue(charHeads[charName]) ||
+      normalizeImageValue(charHeads.default) ||
+      ""
+    );
+  }
+  return "";
+};
 
 export const createImageSection = (images) => {
-    if (!Array.isArray(images)) return "";
-    return `
+  if (!Array.isArray(images)) return "";
+  const normalized = images
+    .map((item) => normalizeImageValue(item))
+    .filter(Boolean);
+  if (!normalized.length) return "";
+  return `
       <div style="text-align: center; margin-top: 30px;">
-        ${images
+        ${normalized
           .map(
             (url) => `
             <img src="${url}" style="max-width: 100%; height: auto; border-radius: 5px;">
@@ -14,7 +69,7 @@ export const createImageSection = (images) => {
           .join("")}
       </div>
     `;
-  };
+};
   const translateCategory = (category) => {
     const categoryMap = {
         "메인": "main",
@@ -30,8 +85,33 @@ export const createImageSection = (images) => {
     return categoryMap[category] ?? category;
   };
   
-  export const processMessageTag = (p, type, t, charHeads, charColors, diceEnabled, setDiceEnabled, secretEnabled, setSecretEnabled,
-     limitLines, count, parsedDivs, lastCharName, lastCategory, inputTexts, selectedCategories, setSelectedCategories) => {    
+export const processMessageTag = (
+  p,
+  type,
+  t,
+  charHeads,
+  charColors,
+  diceEnabled,
+  setDiceEnabled,
+  secretEnabled,
+  setSecretEnabled,
+  limitLines,
+  count,
+  parsedDivs,
+  lastCharName,
+  lastCategory,
+  inputTexts,
+  selectedCategories,
+  setSelectedCategories,
+  avatarBuilder
+) => {
+    const buildAvatarTag =
+      avatarBuilder ||
+      ((imgUrl, charName) =>
+        imgUrl
+          ? `<img src="${imgUrl}" alt="${charName}" style="width: 40px; height: 40px; object-fit: cover; object-position: top center; border-radius: 5px;">`
+          : `<img style="width: 40px; border-radius: 5px;">`);
+    
     
     const successTypes = getDiceTypes(t);
     const spans = p.getElementsByTagName("span");
@@ -51,7 +131,7 @@ export const createImageSection = (images) => {
     let imgTag = "";
     let backgroundColor = "transparent";
     let displayType = "flex";
-    const imgUrl = (type === "json")? charHeads || "" : charHeads[charName] || "";
+    const imgUrl = resolveCharacterHead(charHeads, charName);
 
     // 스타일 및 UI 설정 함수
     const applyCategoryStyles = () => {
@@ -176,9 +256,7 @@ export const createImageSection = (images) => {
             spans[2].insertAdjacentHTML("beforebegin", dice_text);
             } else {
               spans[1].style.fontWeight = "bold";
-              imgTag = imgUrl
-          ? `<img src="${imgUrl}" alt="${charName}" style="width: 40px; height: 40px; object-fit: cover; object-position: top center; border-radius: 5px;">`
-          : `<img style="width: 40px; border-radius: 5px;">`;
+              imgTag = buildAvatarTag(imgUrl, charName);
             }
             cleanUpText_third();
             break;
@@ -188,9 +266,7 @@ export const createImageSection = (images) => {
             <span style="background: #464646; color: white; display: inline-block; padding: 10px 9px; border-radius: 5px; font-size: 14px; text-align: center;">
             ${t('preview.secret')}  </span>`;
             if(secretEnabled){
-                imgTag = imgUrl
-                ? `<img src="${imgUrl}" alt="${charName}" style="width: 40px; height: 40px; object-fit: cover; object-position: top center; border-radius: 5px;">`
-                : `<img style="width: 40px; border-radius: 5px;">`;} else {
+                imgTag = buildAvatarTag(imgUrl, charName);} else {
                 spans[0].insertAdjacentHTML("beforebegin", secret_txt+'&nbsp');
             }
             backgroundColor = "#525569";
@@ -224,16 +300,12 @@ export const createImageSection = (images) => {
                         }
                     }
                 } else if(secretEnabled){
-                    imgTag = imgUrl
-                    ? `<img src="${imgUrl}" alt="${charName}" style="width: 40px; height: 40px; object-fit: cover; object-position: top center; border-radius: 5px;">`
-                    : `<img style="width: 40px; border-radius: 5px;">`;}
-                
+                    imgTag = buildAvatarTag(imgUrl, charName);
+                }
             } else {
                 spans[1].style.fontWeight = "bold";
                 backgroundColor = "#3b3b3b";
-                imgTag = imgUrl
-                    ? `<img src="${imgUrl}" alt="${charName}" style="width: 40px; height: 40px; object-fit: cover; object-position: top center; border-radius: 5px;">`
-                    : `<img style="width: 40px; border-radius: 5px;">`;
+                imgTag = buildAvatarTag(imgUrl, charName);
             }
             cleanUpText_third();
             break;
