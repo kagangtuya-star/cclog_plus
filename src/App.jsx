@@ -59,8 +59,9 @@ function App() {
   const [availableChannels, setAvailableChannels] = useState([]);
   const [availableRoles, setAvailableRoles] = useState([]);
   const [searchPage, setSearchPage] = useState(1);
-  const [selectedMessageIndex, setSelectedMessageIndex] = useState(null);
-  const [visibleWindow, setVisibleWindow] = useState({ start: 0, end: 12 });
+  const [selectedResultIndex, setSelectedResultIndex] = useState(null);
+  const [selectedMessageId, setSelectedMessageId] = useState(null);
+  const [contextWindow, setContextWindow] = useState({ start: 0, end: 12 });
   const [exportPage, setExportPage] = useState(1);
   const pageSize = 10;
   const exportPageSize = EXPORT_PAGE_SIZE;
@@ -82,6 +83,14 @@ function App() {
   );
 
   const { messages: apiMessages } = useRoomMessages(activeRoomId, filters);
+  const contextFilters = useMemo(
+    () => ({
+      ...filters,
+      keywords: [],
+    }),
+    [filters]
+  );
+  const { messages: contextMessages } = useRoomMessages(activeRoomId, contextFilters);
   const exportFilters = useMemo(
     () => ({ ...defaultFilters, start: exportRange.start, end: exportRange.end }),
     [exportRange]
@@ -110,12 +119,33 @@ function App() {
     const start = (searchPage - 1) * pageSize;
     return apiMessages.slice(start, start + pageSize);
   }, [apiMessages, searchPage]);
+  const contextSelectedIndex = useMemo(() => {
+    if (!selectedMessageId) return null;
+    const idx = contextMessages.findIndex((msg) => msg.id === selectedMessageId);
+    return idx === -1 ? null : idx;
+  }, [contextMessages, selectedMessageId]);
   useEffect(() => {
-    setVisibleWindow({
-      start: 0,
-      end: Math.min(apiMessages.length, 11),
+    if (contextSelectedIndex === null) return;
+    setContextWindow((prev) => {
+      const inView = contextSelectedIndex >= prev.start && contextSelectedIndex < prev.end;
+      if (inView) return prev;
+      const start = Math.max(0, contextSelectedIndex - 5);
+      return {
+        start,
+        end: Math.min(contextMessages.length, contextSelectedIndex + 6),
+      };
     });
-    setSelectedMessageIndex(null);
+  }, [contextSelectedIndex, contextMessages.length]);
+  useEffect(() => {
+    if (selectedMessageId !== null) return;
+    setContextWindow({
+      start: 0,
+      end: Math.min(contextMessages.length, 11),
+    });
+  }, [selectedMessageId, contextMessages.length]);
+  useEffect(() => {
+    setSelectedResultIndex(null);
+    setSelectedMessageId(null);
   }, [apiMessages]);
 
   const refreshRooms = useCallback(async () => {
@@ -792,8 +822,9 @@ function App() {
       setAvailableRoles(roles);
     };
     loadMeta();
-    setSelectedMessageIndex(null);
-    setVisibleWindow({ start: 0, end: 10 });
+    setSelectedResultIndex(null);
+    setSelectedMessageId(null);
+    setContextWindow({ start: 0, end: 10 });
   }, [activeRoomId]);
   const rgbToHex = (rgb) => {
     if (!rgb || !rgb.startsWith("rgb")) return rgb;
@@ -812,6 +843,44 @@ function App() {
       setExportRoomId(roomId);
     }
   };
+  const handleResultSelect = useCallback(
+    (absoluteIndex) => {
+      if (absoluteIndex == null) return;
+      setSelectedResultIndex(absoluteIndex);
+      const target = apiMessages[absoluteIndex];
+      setSelectedMessageId(target?.id || null);
+    },
+    [apiMessages]
+  );
+  const handleContextSelect = useCallback(
+    (absoluteIndex) => {
+      const target = contextMessages[absoluteIndex];
+      if (!target) return;
+      setSelectedMessageId(target.id);
+      const resultIndex = apiMessages.findIndex((msg) => msg.id === target.id);
+      setSelectedResultIndex(resultIndex === -1 ? null : resultIndex);
+    },
+    [contextMessages, apiMessages]
+  );
+  const handleContextWindowRequest = useCallback(
+    (dir) => {
+      const batch = 5;
+      setContextWindow((prev) => {
+        if (dir === "up" && prev.start > 0) {
+          const start = Math.max(0, prev.start - batch);
+          return { start, end: prev.end };
+        }
+        if (dir === "down" && prev.end < contextMessages.length) {
+          return {
+            start: prev.start,
+            end: Math.min(contextMessages.length, prev.end + batch),
+          };
+        }
+        return prev;
+      });
+    },
+    [contextMessages.length]
+  );
 
   return (
     <div className="app-shell">
@@ -870,44 +939,20 @@ function App() {
                   onPrev={() => setSearchPage((prev) => Math.max(1, prev - 1))}
                   onNext={() => setSearchPage((prev) => Math.min(totalPages, prev + 1))}
                   renderHtml={(msgs) => renderNormalizedMessages(msgs, false, false)}
-                  onSelect={(index) => {
-                    setSelectedMessageIndex(index);
-                    const start = Math.max(0, index - 5);
-                    setVisibleWindow({
-                      start,
-                      end: Math.min(apiMessages.length, index + 6),
-                    });
-                  }}
-                  selectedIndex={selectedMessageIndex}
+                  onSelect={handleResultSelect}
+                  selectedIndex={selectedResultIndex}
                   pageStartIndex={(searchPage - 1) * pageSize}
                   totalCount={apiMessages.length}
                 />
-                {selectedMessageIndex !== null && (
+                {selectedMessageId !== null && (
                   <div className="context-preview">
                     <h4>上下文预览</h4>
                     <ContextPreview
-                      messages={apiMessages}
-                      selectedIndex={selectedMessageIndex}
-                      visibleWindow={visibleWindow}
-                      onRequestWindow={(dir) => {
-                        const batch = 5;
-                        if (dir === "up" && visibleWindow.start > 0) {
-                          setVisibleWindow((prev) => ({
-                            start: Math.max(0, prev.start - batch),
-                            end: prev.end,
-                          }));
-                        } else if (dir === "down" && visibleWindow.end < apiMessages.length) {
-                          setVisibleWindow((prev) => ({
-                            start: prev.start,
-                            end: Math.min(apiMessages.length, prev.end + batch),
-                          }));
-                        }
-                      }}
-                      onSelect={(index) => {
-                        setSelectedMessageIndex(index);
-                        const start = Math.max(0, index - 5);
-                        setVisibleWindow({ start, end: Math.min(apiMessages.length, index + 6) });
-                      }}
+                      messages={contextMessages}
+                      selectedIndex={contextSelectedIndex}
+                      visibleWindow={contextWindow}
+                      onRequestWindow={handleContextWindowRequest}
+                      onSelect={handleContextSelect}
                       renderHtml={(msgs) => renderNormalizedMessages(msgs, false, false)}
                     />
                   </div>
